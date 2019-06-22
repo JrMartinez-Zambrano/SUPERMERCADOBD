@@ -1,3 +1,8 @@
+/*
+--BASE DE DATOS: MISUPER
+--EQUIPO DESARROLLADOR : TECHNOCODE
+*/
+
 USE tempdb
 GO
 
@@ -306,6 +311,70 @@ begin TRANSACTION
 	END CATCH
 GO
 
+--PROCEDIMIENTO DE ACTUALIZAR EMPLEADO
+CREATE PROCEDURE ACTUALIZAREMPLEADO  @Empleado INT,  @Codigo INT, @nombreEmpleado NVARCHAR(50), @apellidoEmpleado NVARCHAR(80), @fechaIngreso DATE, @puesto NVARCHAR(60), @sexo CHAR(1), @telefono CHAR(9),@direccion TEXT, @correoEmpleado NVARCHAR(80), @mens TEXT OUT
+AS
+BEGIN TRANSACTION 
+	BEGIN TRY
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado) 
+		BEGIN
+			if exists(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Codigo)
+			BEGIN
+			UPDATE PERSONA.EMPLEADO SET nombreEmpleado = @nombreEmpleado, apellidoEmpleado = @apellidoEmpleado,fechaIngreso = @fechaIngreso, puesto = @puesto, sexo = @sexo, telefono = @telefono, direccion = @direccion, correoEmpleado = @correoEmpleado WHERE idEmpleado=@Codigo;
+			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+			 VALUES ('SE ACTUALIZO EMPLEADO:' + CAST(@Codigo AS VARCHAR),  'EMPLEADO', 'ACTUALIZACIÓN EXITOSA', @Empleado);
+			SET @mens='ACTUALIZACION EXITOSA';
+			END
+			ELSE
+			BEGIN
+			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
+			END
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
+
+--PROCEDIMIENTO ELIMINAR EMPLEADO
+CREATE PROCEDURE ELIMINAREMPLEADO @Empleado INT, @Codigo INT, @mens TEXT OUT
+AS
+BEGIN TRANSACTION
+	BEGIN TRY
+		IF EXISTS (SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado) 
+		BEGIN
+			if exists(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Codigo) 
+			BEGIN
+				DELETE FROM PERSONA.Empleado WHERE idEmpleado=@Codigo
+				SET @mens='EMPLEADO ' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
+				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+				VALUES ('SE ELIMINO EMPLEADO:'+ CAST(@Codigo AS VARCHAR), 'EMPLEADO', 'ELIMINACIÓN EXITOSA', @Empleado);
+			END
+			ELSE
+			BEGIN
+				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
+			END
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE USTED INGRESO NO EXISTE';
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
+
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------***INSERCION DE DATOS****------------------------------------------------------------------------------
@@ -342,6 +411,8 @@ PRINT @mens;
 go
 
 
+
+/*
 SELECT * FROM PERSONA.Cliente
 GO
 
@@ -363,4 +434,4 @@ GO
 TRUNCATE TABLE REGISTRO.Movimiento 
 GO
 
-
+*/
