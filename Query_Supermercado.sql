@@ -291,7 +291,7 @@ BEGIN TRANSACTION
 GO
 
 
-
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 --PROCEDIMIENTO DE AGREGAR EMPLEADO
 CREATE PROCEDURE AGREGAREMPLEADO @nombreEmpleado NVARCHAR(50), @apellidoEmpleado NVARCHAR(80), @fechaIngreso DATE, @puesto NVARCHAR(60), @sexo CHAR(1), @telefono CHAR(9),@direccion TEXT, @correoEmpleado NVARCHAR(80), @mens TEXT OUT
@@ -374,18 +374,126 @@ BEGIN TRANSACTION
 	END CATCH
 GO
 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--PROCEDIMIENTO DE AGREGAR USUARIO	
+CREATE PROCEDURE AGREGARUSUARIO @Empleado INT, @nombreUsuario NVARCHAR(25), @passwordUsuario NVARCHAR(12), @nivelUsuario VARCHAR(15), @mens TEXT OUT
+AS
+begin TRANSACTION
+	BEGIN TRY
+		declare @idUsuario INT;
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+			INSERT INTO PERSONA.Usuario(nombreUsuario, passwordUsuario, nivelUsuario)
+			VALUES (@nombreUsuario, @passwordUsuario, @nivelUsuario);
+			set @idUsuario=(SELECT idUsuario FROM PERSONA.Usuario WHERE nombreUsuario= @nombreUsuario);
+			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+			VALUES ('SE AÑADIÓ UN USUARIO: '+CAST(@idUsuario AS varchar), 'USUARIO', 'INSERCIÓN EXITOSA', @Empleado);
+			SET @mens='USUARIO '+cast(@idUsuario AS varchar)+' AÑADIDO';
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
+
+--PROCEDIMIENTO DE ACTUALIZAR USUARIO	
+CREATE PROCEDURE ACTUALIZARUSUARIO @Empleado INT,@codigo INT, @nombreUsuario NVARCHAR(25), @passwordUsuario NVARCHAR(12), @nivelUsuario VARCHAR(15), @mens TEXT OUT
+AS
+BEGIN TRANSACTION 
+	BEGIN TRY-- se usa el transaction para evitar errores	
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+			if exists(SELECT * FROM PERSONA.Usuario WHERE idUsuario=@codigo)
+			BEGIN
+			UPDATE PERSONA.Usuario SET nombreUsuario = @nombreUsuario, passwordUsuario = @passwordUsuario, nivelUsuario = @nivelUsuario WHERE idUsuario=@codigo;
+
+			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
+			 VALUES ('SE ACTUALIZO EL USUARIO:' + CAST(@codigo AS VARCHAR),  'USUARIO', 'ACTUALIZACIÓN EXITOSA', @Empleado);
+			SET @mens='ACTUALIZACION CORRECTA';
+			END
+			ELSE
+			BEGIN
+			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
+			END
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
+
+--PROCEDIMIENTO DE ELIMINAR USUARIO	
+CREATE PROCEDURE ELIMINARUSUARIO @Empleado INT, @Codigo INT, @mens TEXT OUT
+AS
+BEGIN TRANSACTION
+	BEGIN TRY
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado) --Debe existir ese empleado
+		BEGIN
+			if exists(SELECT * FROM PERSONA.Usuario WHERE idUsuario=@Codigo) --Debe existir un cliente con ese codigo
+			BEGIN
+				DELETE FROM PERSONA.Usuario WHERE idUsuario=@Codigo
+				SET @mens='USUARIO ' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
+				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+				VALUES ('SE ELIMINO USUARIO:'+ CAST(@Codigo AS VARCHAR), 'USUARIO', 'ELIMINACION EXITOSA', @Empleado);
+			END
+			ELSE
+			BEGIN
+				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
+			END
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
+
+
+
+
 
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------***INSERCION DE DATOS****------------------------------------------------------------------------------
----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 --================================================================EMPLEADO(INSERCION)================================================================================
 
 --Agregar un Empleado en la tabla REGISTROS.Empleado(nombreEmpleado, apellidoEmpleado, fechaIngreso, puesto, sexo, telefono, direccion, correoEmpleado)
 DECLARE @mens VARCHAR(180);
-EXEC AGREGAREMPLEADO 'Bob', 'Lopez', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com', @mens OUT
+EXEC AGREGAREMPLEADO 'Ned', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com', @mens OUT
+PRINT @mens;
+go
+
+DECLARE @mens VARCHAR(180);
+EXEC ACTUALIZAREMPLEADO  01, 01, 'ned1', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com', @mens OUT
+PRINT @mens;
+go
+
+DECLARE @mens VARCHAR(180);
+EXEC ELIMINAREMPLEADO 01,01, @mens OUT
 PRINT @mens;
 go
 
@@ -411,6 +519,28 @@ PRINT @mens;
 go
 
 
+--================================================================USUARIO(INSERCION)================================================================================
+
+--Agregar un Cliente en la tabla REGISTROS.Usuario (Identidad del empleado, nombre del usuario, password, nivel del usuario)
+
+
+DECLARE @mens VARCHAR(180);
+EXEC AGREGARUSUARIO 01,'usu', 'arroz09', 'empleado',@mens OUT
+PRINT @mens;
+go
+
+
+DECLARE @mens VARCHAR(180);
+EXEC ACTUALIZARUSUARIO 01,01,'usu2', 'arroz09', 'empleado',@mens OUT
+PRINT @mens;
+go
+
+DECLARE @mens VARCHAR(180);
+EXEC ELIMINARUSUARIO 01,01 ,@mens OUT
+PRINT @mens;
+go
+
+
 
 /*
 SELECT * FROM PERSONA.Cliente
@@ -420,6 +550,9 @@ SELECT * FROM PERSONA.Empleado
 GO
 
 SELECT * FROM REGISTRO.Movimiento
+GO
+
+SELECT * FROM PERSONA.Usuario
 GO
 
 delete from PERSONA.Cliente where idCliente = 1
