@@ -631,12 +631,38 @@ PRINT @mens;
 go
 
 
+--================================================================USUARIO(INSERCION)================================================================================
+
+--Agregar un Cliente en la tabla PRODUCTO.CaterogoriaProducto (Identidad del empleado, nombre de la categoria)
+
+
+DECLARE @mens VARCHAR(180);
+EXEC AGREGARCATEGORIAPRODUCTO  01,'Alimentos',@mens OUT
+PRINT @mens;
+go
+
+
+DECLARE @mens VARCHAR(180);
+EXEC  ACTUALIZARCATEGORIAPRODUCTO 01,01,'Alimentos Procesados' ,@mens OUT
+PRINT @mens;
+go
+
+DECLARE @mens VARCHAR(180);
+EXEC ELIMINARCATEGORIAPRODUCTO 01, 01 ,@mens OUT
+PRINT @mens;
+go
+
+
+
 
 /*
 SELECT * FROM PERSONA.Cliente
 GO
 
 SELECT * FROM PERSONA.Empleado
+GO
+
+SELECT * FROM RPRODUCTO.CategoriaProducto
 GO
 
 SELECT * FROM REGISTRO.Movimiento
