@@ -6,7 +6,6 @@
 USE tempdb
 GO
 
-
 IF EXISTS(SELECT * FROM sys.databases WHERE name='SUPERMERCADO')
 BEGIN
 	DROP DATABASE SUPERMERCADO;
@@ -84,7 +83,6 @@ CREATE TABLE PRODUCTO.Proveedor
 (
  idProveedor INT IDENTITY(1,1) PRIMARY KEY CLUSTERED,
  nombreProveedor NVARCHAR(50) NOT NULL,
- puesto NVARCHAR NOT NULL,
  telefonoProveedor CHAR(9) NOT NULL,
  celularProveedor CHAR(9) NULL,
  direccionProveedor TEXT NOT NULL,
@@ -108,9 +106,7 @@ CREATE TABLE PRODUCTO.Producto
  stock INT NOT NULL,
  precio DECIMAL(10,2) NOT NULL,
  marca NVARCHAR(40) NOT NULL,
- fechaCaducidad DATE NOT NULL,
- descripcionProveedor TEXT NULL,
- correoProveedor NVARCHAR(80) NOT NULL
+ fechaCaducidad DATE NOT NULL
 )
 
 CREATE TABLE REGISTRO.Movimiento
@@ -147,6 +143,7 @@ FOREIGN KEY (idProveedor) REFERENCES PRODUCTO.Proveedor (idProveedor)
 ON DELETE NO ACTION
 ON UPDATE NO ACTION;
 GO
+
 
 ALTER TABLE PRODUCTO.Producto
 ADD CONSTRAINT FK_PRODUCTO_PRODUCTO$TIENE_UNA$PRODUCTO_CATEGORIAPRODUCTO
@@ -481,10 +478,10 @@ begin TRANSACTION
 		BEGIN
 			INSERT INTO PRODUCTO.CategoriaProducto(nombreCategoria)
 			VALUES (@nombreCategoria);
-			set @idCategoriaProducto=(SELECT @idCategoriaProducto FROM PRODUCTO.CategoriaProducto WHERE nombreCategoria= @nombreCategoria);
+			set @idCategoriaProducto=(SELECT idCategoriaProducto FROM PRODUCTO.CategoriaProducto WHERE nombreCategoria= @nombreCategoria);
 			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
-			VALUES ('SE AÑADIÓ UNA CATEGORIA: '+CAST(@idCategoriaProducto AS varchar), 'CATEGORIAPRODUCTO', 'INSERCIÓN EXITOSA', @Empleado);
-			SET @mens=' '+cast(@idCategoriaProducto AS varchar)+' AÑADIDO';
+			VALUES ('SE AÑADIÓ UNA CATEGORIA DE PRODUCTO: '+@nombreCategoria, 'CATEGORIAPRODUCTO', 'INSERCIÓN EXITOSA', @Empleado);
+			SET @mens='CATEGORIA '+cast(@idCategoriaProducto AS varchar)+' AÑADIDO';
 		END
 		ELSE
 		BEGIN
@@ -543,7 +540,7 @@ BEGIN TRANSACTION
 				DELETE FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@Codigo
 				SET @mens='CATEGORIA DE PRODUCTO ' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
 				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
-				VALUES ('SE ELIMINO ULA CATEGORIA:'+ CAST(@Codigo AS VARCHAR), 'CATEGORIAPRODUCTOS', 'ELIMINACION EXITOSA', @Empleado);
+				VALUES ('SE ELIMINO LA CATEGORIA:'+ CAST(@Codigo AS VARCHAR), 'CATEGORIAPRODUCTO', 'ELIMINACION EXITOSA', @Empleado);
 			END
 			ELSE
 			BEGIN
@@ -561,6 +558,104 @@ BEGIN TRANSACTION
 		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--PROCEDIMIENTO DE AGREGAR PRODUCTO	
+CREATE PROCEDURE AGREGARPRODUCTO @Empleado INT, @idProveedor INT, @idCategoriaProducto INT, @nombreProducto NVARCHAR(50), @stock INT, @precio DECIMAL(10,2), @marca NVARCHAR(40) ,@fechaCaducidad DATE, @mens TEXT OUT
+AS
+begin TRANSACTION
+	BEGIN TRY
+		declare @idProducto INT;
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+			INSERT INTO PRODUCTO.Producto(idProveedor,idCategoriaProducto, nombreProducto, stock, precio, marca, fechaCaducidad)
+			VALUES (@idProveedor, @idCategoriaProducto,@nombreProducto, @stock, @precio,@marca, @fechaCaducidad);
+			set @idProducto=(SELECT idProducto FROM PRODUCTO.Producto WHERE nombreProducto= @nombreProducto);
+			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+			VALUES ('SE AÑADIÓ UN PRODUCTO:'+CAST(@idProducto AS VARCHAR), 'PRODUCTO', 'INSERCIÓN EXITOSA', @Empleado);
+			SET @mens='PRODUCTO'+cast(@idProducto AS varchar)+' AÑADIDO';
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
+
+
+--PROCEDIMIENTO DE ACTUALIZAR PRODUCTO	
+CREATE PROCEDURE ACTUALIZARPRODUCTO @Empleado INT,@codigo INT, @idProveedor INT, @idCategoriaProducto INT, @nombreProducto NVARCHAR(50), @stock INT, @precio DECIMAL(10,2), @marca NVARCHAR(40) ,@fechaCaducidad DATE, @mens TEXT OUT
+AS
+BEGIN TRANSACTION 
+	BEGIN TRY-- se usa el transaction para evitar errores	
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+			if exists(SELECT * FROM PRODUCTO.Producto WHERE idProducto=@codigo)
+			BEGIN
+			UPDATE PRODUCTO.Producto SET idProveedor= @idProveedor,idCategoriaProducto = @idCategoriaProducto, nombreProducto = @nombreProducto, stock = @stock, precio = @precio, marca = @marca, fechaCaducidad = @fechaCaducidad WHERE idProducto=@codigo;
+
+			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
+			 VALUES ('SE ACTUALIZO EL PRODUCTO:' + CAST(@codigo AS VARCHAR),  'PRODUCTO', 'ACTUALIZACIÓN EXITOSA', @Empleado);
+			SET @mens='ACTUALIZACION CORRECTA';
+			END
+			ELSE
+			BEGIN
+			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
+			END
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
+
+
+--PROCEDIMIENTO DE ELIMINAR USUARIO	
+CREATE PROCEDURE ELIMINARPRODUCTO @Empleado INT, @Codigo INT, @mens TEXT OUT
+AS
+BEGIN TRANSACTION
+	BEGIN TRY
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado) --Debe existir ese empleado
+		BEGIN
+			if exists(SELECT * FROM PRODUCTO.Producto WHERE idProducto=@Codigo) --Debe existir un cliente con ese codigo
+			BEGIN
+				DELETE FROM PRODUCTO.Producto WHERE idProducto=@Codigo
+				SET @mens='PRODUCTO' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
+				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+				VALUES ('SE ELIMINO EL PRODUCTO:'+ CAST(@Codigo AS VARCHAR), 'PRODUCTO', 'ELIMINACION EXITOSA', @Empleado);
+			END
+			ELSE
+			BEGIN
+				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
+			END
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
 
 
 
@@ -654,16 +749,52 @@ go
 
 
 
+--================================================================PRODUCTO(INSERCION)================================================================================
+
+--Agregar un Producto en la tabla PRODUCTO.Producto(empleado,id Proveedor, id categoria Producto, nombreProducto,stock, precio, marca, fecha de Caducidad)
+DECLARE @mens VARCHAR(180);
+EXEC AGREGARPRODUCTO 01,01,01,'Pasta', 12, 15.00, 'Mi Pasta', '12/01/02', @mens OUT
+PRINT @mens;
+go
+
+DECLARE @mens VARCHAR(180);
+EXEC ACTUALIZARPRODUCTO  1, 01,01,01 ,'Pasta Italiana', 14, 15.00, 'Mi Pasta', '12/01/02', @mens OUT
+PRINT @mens;
+go
+
+DECLARE @mens VARCHAR(180);
+EXEC ELIMINARPRODUCTO 01,01, @mens OUT
+PRINT @mens;
+go
+
+
+INSERT INTO PRODUCTO.Proveedor(nombreProveedor, telefonoProveedor, celularProveedor, direccionProveedor, descripcionProveedor, correoProveedor)
+ VALUES( 'Distribuidora Lopez', '27730987', '98765432', 'San Pedro Sula', 'Eficiente', 'Lopez@gmail.com')
+ GO
+ 
+delete from PRODUCTO.Proveedor where idProveedor =2
+go
+
 
 /*
 SELECT * FROM PERSONA.Cliente
 GO
 
+
+
 SELECT * FROM PERSONA.Empleado
 GO
 
-SELECT * FROM RPRODUCTO.CategoriaProducto
+SELECT * FROM PRODUCTO.CategoriaProducto
 GO
+
+SELECT * FROM PRODUCTO.Proveedor
+GO
+
+SELECT * FROM PRODUCTO.Producto
+GO
+
+
 
 SELECT * FROM REGISTRO.Movimiento
 GO
