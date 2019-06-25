@@ -469,8 +469,98 @@ BEGIN TRANSACTION
 GO
 
 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--PROCEDIMIENTO DE AGREGAR CATEGORIA PRODUCTO
+CREATE PROCEDURE AGREGARCATEGORIAPRODUCTO @Empleado INT, @nombreCategoria NVARCHAR(30), @mens TEXT OUT
+AS
+begin TRANSACTION
+	BEGIN TRY
+		declare @idCategoriaProducto INT;
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+			INSERT INTO PRODUCTO.CategoriaProducto(nombreCategoria)
+			VALUES (@nombreCategoria);
+			set @idCategoriaProducto=(SELECT @idCategoriaProducto FROM PRODUCTO.CategoriaProducto WHERE nombreCategoria= @nombreCategoria);
+			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+			VALUES ('SE AÑADIÓ UNA CATEGORIA: '+CAST(@idCategoriaProducto AS varchar), 'CATEGORIAPRODUCTO', 'INSERCIÓN EXITOSA', @Empleado);
+			SET @mens=' '+cast(@idCategoriaProducto AS varchar)+' AÑADIDO';
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
+
+--PROCEDIMIENTO DE ACTUALIZAR CATEGORIA DEL PRODUCTO	
+CREATE PROCEDURE ACTUALIZARCATEGORIAPRODUCTO @codigo INT, @Empleado INT, @nombreCategoria NVARCHAR(30), @mens TEXT OUT
+AS
+BEGIN TRANSACTION 
+	BEGIN TRY-- se usa el transaction para evitar errores	
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+			if exists(SELECT * FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@codigo)
+			BEGIN
+			UPDATE PRODUCTO.CategoriaProducto SET nombreCategoria = @nombreCategoria WHERE idCategoriaProducto=@codigo;
+
+			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
+			 VALUES ('SE ACTUALIZO UNA CATEGORIA:' + CAST(@codigo AS VARCHAR),  'CATEGORIAPRODUCTO', 'ACTUALIZACIÓN EXITOSA', @Empleado);
+			SET @mens='ACTUALIZACION CORRECTA';
+			END
+			ELSE
+			BEGIN
+			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
+			END
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
 
 
+--PROCEDIMIENTO DE ELIMINAR CATEGORIA DE PRODUCTO
+CREATE PROCEDURE ELIMINARCATEGORIAPRODUCTO @Empleado INT, @Codigo INT, @mens TEXT OUT
+AS
+BEGIN TRANSACTION
+	BEGIN TRY
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado) --Debe existir ese empleado
+		BEGIN
+			if exists(SELECT * FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@Codigo) --Debe existir un cliente con ese codigo
+			BEGIN
+				DELETE FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@Codigo
+				SET @mens='CATEGORIA DE PRODUCTO ' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
+				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+				VALUES ('SE ELIMINO ULA CATEGORIA:'+ CAST(@Codigo AS VARCHAR), 'CATEGORIAPRODUCTOS', 'ELIMINACION EXITOSA', @Empleado);
+			END
+			ELSE
+			BEGIN
+				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
+			END
+		END
+		ELSE
+		BEGIN
+			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		SET @mens=ERROR_MESSAGE();
+	END CATCH
+GO
 
 
 
