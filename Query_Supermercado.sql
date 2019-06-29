@@ -6,6 +6,9 @@
 USE tempdb
 GO
 
+
+ --alter database SUPERMERCADO set single_user with rollback immediate
+
 IF EXISTS(SELECT * FROM sys.databases WHERE name='SUPERMERCADO')
 BEGIN
 	DROP DATABASE SUPERMERCADO;
@@ -16,7 +19,7 @@ CREATE DATABASE SUPERMERCADO
 ON PRIMARY
 (
 	NAME='SUPERMERCADO_DATA',
-	FILENAME='C:\PRUEBA_DOCUMENTACION\SUPERMERCADO_DATA.mdf',
+	FILENAME='C:\supermercadoMiSuper\SUPERMERCADO_DATA.mdf',
 	SIZE=10MB,
 	MAXSIZE=800MB,
 	FILEGROWTH=5MB
@@ -24,7 +27,7 @@ ON PRIMARY
 LOG ON
 (
 	NAME='SUPERMERCADO_LOG',
-	FILENAME='C:\PRUEBA_DOCUMENTACION\SUPERMERCADO_LOG.ldf',
+	FILENAME='C:\supermercadoMiSuper\SUPERMERCADO_LOG.ldf',
 	SIZE=10MB,
 	MAXSIZE=600MB,
 	FILEGROWTH=5MB
@@ -63,7 +66,7 @@ CREATE TABLE PERSONA.Empleado
  idEmpleado INT IDENTITY(1,1) PRIMARY KEY CLUSTERED,
  nombreEmpleado NVARCHAR(50) NOT NULL,
  apellidoEmpleado NVARCHAR(80) NOT NULL,
- fechaIngreso DATE NOT NULL,
+ fechaIngreso NVARCHAR(8) NOT NULL,
  puesto NVARCHAR(60) NOT NULL,
  sexo CHAR(1) NOT NULL,
  telefono CHAR(9) NULL,
@@ -186,35 +189,29 @@ GO
 
 
 --PROCEDIMIENTO DE AGREGAR CLIENTE
-CREATE PROCEDURE AGREGARCLIENTE @Empleado INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(80), @identidad VARCHAR(15), @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80), @mens TEXT OUT
+CREATE PROCEDURE AGREGARCLIENTE @Empleado INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(80), @identidad VARCHAR(15), @vecesCompra INT, @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80)
 AS
-begin TRANSACTION
+BEGIN TRANSACTION
 	BEGIN TRY
-		declare @idCliente INT;
+		DECLARE @idCliente INT;
 		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
-		BEGIN
-			INSERT INTO PERSONA.Cliente(nombreCliente, apellidoCliente, identidad, sexo, telefono, direccion, correoCliente)
-			VALUES (@nombreCliente, @apellidoCliente, @identidad, @sexo, @telefono, @direccion, @correoCliente);
+		 BEGIN
+			INSERT INTO PERSONA.Cliente(nombreCliente, apellidoCliente, identidad, vecesCompra, sexo, telefono, direccion, correoCliente)
+			VALUES (@nombreCliente, @apellidoCliente, @identidad,@vecesCompra, @sexo, @telefono, @direccion, @correoCliente);
 			set @idCliente=(SELECT idCliente FROM PERSONA.Cliente WHERE identidad=@identidad);
 			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 			VALUES ('SE AÑADIÓ UN CLIENTE: '+CAST(@idCliente AS varchar), 'CLIENTE', 'INSERCIÓN EXITOSA', @Empleado);
-			SET @mens='CLIENTE '+cast(@idCliente AS varchar)+' AÑADIDO';
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
-		END
+		 END
 		COMMIT
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 
 --PROCEDIMIENTO ACTUALIZAR CLIENTE
-CREATE PROCEDURE ACTUALIZARCLIENTE @Empleado INT,@codigo INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(50), @identidad VARCHAR(15), @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80), @mens TEXT OUT
+CREATE PROCEDURE ACTUALIZARCLIENTE @Empleado INT,@codigo INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(50), @identidad VARCHAR(15),@vecesCompra INT, @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80)
 AS
 BEGIN TRANSACTION 
 	BEGIN TRY-- se usa el transaction para evitar errores	
@@ -222,32 +219,22 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PERSONA.Cliente WHERE idCliente=@codigo)
 			BEGIN
-			UPDATE PERSONA.Cliente SET nombreCliente = @nombreCliente, apellidoCliente = @apellidoCliente, identidad = @identidad , sexo =  @sexo, telefono = @telefono, direccion = @direccion, correoCliente = @correoCliente WHERE IdCliente=@codigo;
+			UPDATE PERSONA.Cliente SET nombreCliente = @nombreCliente, apellidoCliente = @apellidoCliente, identidad = @identidad , vecesCompra  = @vecesCompra, sexo =  @sexo, telefono = @telefono, direccion = @direccion, correoCliente = @correoCliente WHERE IdCliente=@codigo;
 
 			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
-			 VALUES ('SE ACTUALIZO CLIENTE:' + CAST(@codigo AS VARCHAR),  'CLIENTES', 'ACTUALIZACIÓN EXITOSA', @Empleado);
-			SET @mens='ACTUALIZACION CORRECTA';
+			 VALUES ('SE ACTUALIZO CLIENTE:' + CAST(@codigo AS VARCHAR),  'CLIENTE', 'ACTUALIZACIÓN EXITOSA', @Empleado);
 			END
-			ELSE
-			BEGIN
-			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 
 --PROCEDIMIENTO ELIMINAR CLIENTE--PROCESO DE ELIMINAR EN CLIENTES
-CREATE PROCEDURE ELIMINARCLIENTE @Empleado INT, @Codigo INT, @mens TEXT OUT
+CREATE PROCEDURE ELIMINARCLIENTE @Empleado INT, @Codigo INT
 AS
 BEGIN TRANSACTION
 	BEGIN TRY
@@ -257,33 +244,22 @@ BEGIN TRANSACTION
 			BEGIN
 				if isnull((select vecesCompra FROM PERSONA.Cliente WHERE idCliente=@Codigo), 0)=0 --Si el cliente nunca ha hecho una compre, se puede eliminar
 				BEGIN
-				DELETE FROM PERSONA.Cliente WHERE idCliente=@Codigo
-				SET @mens='CLIENTE ' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
-				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
-				VALUES ('SE ELIMINO CLIENTE:'+ CAST(@Codigo AS VARCHAR), 'CLIENTES', 'ELIMINACION CORRECTA', @Empleado);
+				  DELETE FROM PERSONA.Cliente WHERE idCliente=@Codigo
+				  INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+				  VALUES ('SE ELIMINO CLIENTE:'+ CAST(@Codigo AS VARCHAR), 'CLIENTES', 'ELIMINACION CORRECTA', @Empleado);
 				END
 				ELSE
 				BEGIN
 					update PERSONA.Cliente SET estadoCliente='INACTIVO/A' WHERE idCliente=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
 					INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 					VALUES ('SE CAMBIO ESTADO CLIENTE:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'CLIENTE', 'CLIENTE INACTIVO', @Empleado);
-					SET @mens='NO se puede eliminar cliente porque ya ha comprado una o mas veces, se ha cambiado su estado a inactivo';
-				END
-			END
-			ELSE
-			BEGIN
-				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+			    END
+		    END
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
@@ -291,7 +267,7 @@ GO
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 --PROCEDIMIENTO DE AGREGAR EMPLEADO
-CREATE PROCEDURE AGREGAREMPLEADO @nombreEmpleado NVARCHAR(50), @apellidoEmpleado NVARCHAR(80), @fechaIngreso DATE, @puesto NVARCHAR(60), @sexo CHAR(1), @telefono CHAR(9),@direccion TEXT, @correoEmpleado NVARCHAR(80), @mens TEXT OUT
+CREATE PROCEDURE AGREGAREMPLEADO @nombreEmpleado NVARCHAR(50), @apellidoEmpleado NVARCHAR(80), @fechaIngreso NVARCHAR(8), @puesto NVARCHAR(60), @sexo CHAR(1), @telefono CHAR(9),@direccion TEXT, @correoEmpleado NVARCHAR(80)
 AS
 begin TRANSACTION
 	BEGIN TRY
@@ -299,17 +275,15 @@ begin TRANSACTION
 			VALUES (@nombreEmpleado, @apellidoEmpleado, @fechaIngreso, @puesto, @sexo, @telefono, @direccion, @correoEmpleado);
 			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
 			 VALUES ('SE AÑADIÓ UN EMPLEADO: '+@nombreEmpleado, 'EMPLEADO', 'INSERCIÓN EXITOSA', 0);
-			SET @mens='EMPLEADO AÑADIDO';
 		COMMIT
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 --PROCEDIMIENTO DE ACTUALIZAR EMPLEADO
-CREATE PROCEDURE ACTUALIZAREMPLEADO  @Empleado INT,  @Codigo INT, @nombreEmpleado NVARCHAR(50), @apellidoEmpleado NVARCHAR(80), @fechaIngreso DATE, @puesto NVARCHAR(60), @sexo CHAR(1), @telefono CHAR(9),@direccion TEXT, @correoEmpleado NVARCHAR(80), @mens TEXT OUT
+CREATE PROCEDURE ACTUALIZAREMPLEADO  @Empleado INT,  @Codigo INT, @nombreEmpleado NVARCHAR(50), @apellidoEmpleado NVARCHAR(80), @fechaIngreso NVARCHAR(8), @puesto NVARCHAR(60), @sexo CHAR(1), @telefono CHAR(9),@direccion TEXT, @correoEmpleado NVARCHAR(80)
 AS
 BEGIN TRANSACTION 
 	BEGIN TRY
@@ -320,28 +294,18 @@ BEGIN TRANSACTION
 			UPDATE PERSONA.EMPLEADO SET nombreEmpleado = @nombreEmpleado, apellidoEmpleado = @apellidoEmpleado,fechaIngreso = @fechaIngreso, puesto = @puesto, sexo = @sexo, telefono = @telefono, direccion = @direccion, correoEmpleado = @correoEmpleado WHERE idEmpleado=@Codigo;
 			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 			 VALUES ('SE ACTUALIZO EMPLEADO:' + CAST(@Codigo AS VARCHAR),  'EMPLEADO', 'ACTUALIZACIÓN EXITOSA', @Empleado);
-			SET @mens='ACTUALIZACION EXITOSA';
 			END
-			ELSE
-			BEGIN
-			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 
 --PROCEDIMIENTO ELIMINAR EMPLEADO
-CREATE PROCEDURE ELIMINAREMPLEADO @Empleado INT, @Codigo INT, @mens TEXT OUT
+CREATE PROCEDURE ELIMINAREMPLEADO @Empleado INT, @Codigo INT
 AS
 BEGIN TRANSACTION
 	BEGIN TRY
@@ -350,31 +314,21 @@ BEGIN TRANSACTION
 			if exists(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Codigo) 
 			BEGIN
 				DELETE FROM PERSONA.Empleado WHERE idEmpleado=@Codigo
-				SET @mens='EMPLEADO ' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
-				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+				INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 				VALUES ('SE ELIMINO EMPLEADO:'+ CAST(@Codigo AS VARCHAR), 'EMPLEADO', 'ELIMINACIÓN EXITOSA', @Empleado);
 			END
-			ELSE
-			BEGIN
-				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE USTED INGRESO NO EXISTE';
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 --PROCEDIMIENTO DE AGREGAR USUARIO	
-CREATE PROCEDURE AGREGARUSUARIO @Empleado INT, @nombreUsuario NVARCHAR(25), @passwordUsuario NVARCHAR(12), @nivelUsuario VARCHAR(15), @mens TEXT OUT
+CREATE PROCEDURE AGREGARUSUARIO @Empleado INT, @nombreUsuario NVARCHAR(25), @passwordUsuario NVARCHAR(12), @nivelUsuario VARCHAR(15)
 AS
 begin TRANSACTION
 	BEGIN TRY
@@ -386,23 +340,17 @@ begin TRANSACTION
 			set @idUsuario=(SELECT idUsuario FROM PERSONA.Usuario WHERE nombreUsuario= @nombreUsuario);
 			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 			VALUES ('SE AÑADIÓ UN USUARIO: '+CAST(@idUsuario AS varchar), 'USUARIO', 'INSERCIÓN EXITOSA', @Empleado);
-			SET @mens='USUARIO '+cast(@idUsuario AS varchar)+' AÑADIDO';
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 
 --PROCEDIMIENTO DE ACTUALIZAR USUARIO	
-CREATE PROCEDURE ACTUALIZARUSUARIO @Empleado INT,@codigo INT, @nombreUsuario NVARCHAR(25), @passwordUsuario NVARCHAR(12), @nivelUsuario VARCHAR(15), @mens TEXT OUT
+CREATE PROCEDURE ACTUALIZARUSUARIO @Empleado INT,@codigo INT, @nombreUsuario NVARCHAR(25), @passwordUsuario NVARCHAR(12), @nivelUsuario VARCHAR(15)
 AS
 BEGIN TRANSACTION 
 	BEGIN TRY-- se usa el transaction para evitar errores	
@@ -411,31 +359,20 @@ BEGIN TRANSACTION
 			if exists(SELECT * FROM PERSONA.Usuario WHERE idUsuario=@codigo)
 			BEGIN
 			UPDATE PERSONA.Usuario SET nombreUsuario = @nombreUsuario, passwordUsuario = @passwordUsuario, nivelUsuario = @nivelUsuario WHERE idUsuario=@codigo;
-
 			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
 			 VALUES ('SE ACTUALIZO EL USUARIO:' + CAST(@codigo AS VARCHAR),  'USUARIO', 'ACTUALIZACIÓN EXITOSA', @Empleado);
-			SET @mens='ACTUALIZACION CORRECTA';
 			END
-			ELSE
-			BEGIN
-			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 
 --PROCEDIMIENTO DE ELIMINAR USUARIO	
-CREATE PROCEDURE ELIMINARUSUARIO @Empleado INT, @Codigo INT, @mens TEXT OUT
+CREATE PROCEDURE ELIMINARUSUARIO @Empleado INT, @Codigo INT
 AS
 BEGIN TRANSACTION
 	BEGIN TRY
@@ -444,24 +381,14 @@ BEGIN TRANSACTION
 			if exists(SELECT * FROM PERSONA.Usuario WHERE idUsuario=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
 				DELETE FROM PERSONA.Usuario WHERE idUsuario=@Codigo
-				SET @mens='USUARIO ' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
 				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 				VALUES ('SE ELIMINO USUARIO:'+ CAST(@Codigo AS VARCHAR), 'USUARIO', 'ELIMINACION EXITOSA', @Empleado);
 			END
-			ELSE
-			BEGIN
-				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
@@ -469,7 +396,7 @@ GO
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 --PROCEDIMIENTO DE AGREGAR CATEGORIA PRODUCTO
-CREATE PROCEDURE AGREGARCATEGORIAPRODUCTO @Empleado INT, @nombreCategoria NVARCHAR(30), @mens TEXT OUT
+CREATE PROCEDURE AGREGARCATEGORIAPRODUCTO @Empleado INT, @nombreCategoria NVARCHAR(30)
 AS
 begin TRANSACTION
 	BEGIN TRY
@@ -481,22 +408,16 @@ begin TRANSACTION
 			set @idCategoriaProducto=(SELECT idCategoriaProducto FROM PRODUCTO.CategoriaProducto WHERE nombreCategoria= @nombreCategoria);
 			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 			VALUES ('SE AÑADIÓ UNA CATEGORIA DE PRODUCTO: '+@nombreCategoria, 'CATEGORIAPRODUCTO', 'INSERCIÓN EXITOSA', @Empleado);
-			SET @mens='CATEGORIA '+cast(@idCategoriaProducto AS varchar)+' AÑADIDO';
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 --PROCEDIMIENTO DE ACTUALIZAR CATEGORIA DEL PRODUCTO	
-CREATE PROCEDURE ACTUALIZARCATEGORIAPRODUCTO @codigo INT, @Empleado INT, @nombreCategoria NVARCHAR(30), @mens TEXT OUT
+CREATE PROCEDURE ACTUALIZARCATEGORIAPRODUCTO @codigo INT, @Empleado INT, @nombreCategoria NVARCHAR(30)
 AS
 BEGIN TRANSACTION 
 	BEGIN TRY-- se usa el transaction para evitar errores	
@@ -505,31 +426,20 @@ BEGIN TRANSACTION
 			if exists(SELECT * FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@codigo)
 			BEGIN
 			UPDATE PRODUCTO.CategoriaProducto SET nombreCategoria = @nombreCategoria WHERE idCategoriaProducto=@codigo;
-
 			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
 			 VALUES ('SE ACTUALIZO UNA CATEGORIA:' + CAST(@codigo AS VARCHAR),  'CATEGORIAPRODUCTO', 'ACTUALIZACIÓN EXITOSA', @Empleado);
-			SET @mens='ACTUALIZACION CORRECTA';
 			END
-			ELSE
-			BEGIN
-			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 
 --PROCEDIMIENTO DE ELIMINAR CATEGORIA DE PRODUCTO
-CREATE PROCEDURE ELIMINARCATEGORIAPRODUCTO @Empleado INT, @Codigo INT, @mens TEXT OUT
+CREATE PROCEDURE ELIMINARCATEGORIAPRODUCTO @Empleado INT, @Codigo INT
 AS
 BEGIN TRANSACTION
 	BEGIN TRY
@@ -538,24 +448,14 @@ BEGIN TRANSACTION
 			if exists(SELECT * FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
 				DELETE FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@Codigo
-				SET @mens='CATEGORIA DE PRODUCTO ' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
 				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 				VALUES ('SE ELIMINO LA CATEGORIA:'+ CAST(@Codigo AS VARCHAR), 'CATEGORIAPRODUCTO', 'ELIMINACION EXITOSA', @Empleado);
 			END
-			ELSE
-			BEGIN
-				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
@@ -563,7 +463,7 @@ GO
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 --PROCEDIMIENTO DE AGREGAR PRODUCTO	
-CREATE PROCEDURE AGREGARPRODUCTO @Empleado INT, @idProveedor INT, @idCategoriaProducto INT, @nombreProducto NVARCHAR(50), @stock INT, @precio DECIMAL(10,2), @marca NVARCHAR(40) ,@fechaCaducidad DATE, @mens TEXT OUT
+CREATE PROCEDURE AGREGARPRODUCTO @Empleado INT, @idProveedor INT, @idCategoriaProducto INT, @nombreProducto NVARCHAR(50), @stock INT, @precio DECIMAL(10,2), @marca NVARCHAR(40) ,@fechaCaducidad DATE
 AS
 begin TRANSACTION
 	BEGIN TRY
@@ -575,24 +475,18 @@ begin TRANSACTION
 			set @idProducto=(SELECT idProducto FROM PRODUCTO.Producto WHERE nombreProducto= @nombreProducto);
 			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 			VALUES ('SE AÑADIÓ UN PRODUCTO:'+CAST(@idProducto AS VARCHAR), 'PRODUCTO', 'INSERCIÓN EXITOSA', @Empleado);
-			SET @mens='PRODUCTO'+cast(@idProducto AS varchar)+' AÑADIDO';
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 
 
 --PROCEDIMIENTO DE ACTUALIZAR PRODUCTO	
-CREATE PROCEDURE ACTUALIZARPRODUCTO @Empleado INT,@codigo INT, @idProveedor INT, @idCategoriaProducto INT, @nombreProducto NVARCHAR(50), @stock INT, @precio DECIMAL(10,2), @marca NVARCHAR(40) ,@fechaCaducidad DATE, @mens TEXT OUT
+CREATE PROCEDURE ACTUALIZARPRODUCTO @Empleado INT,@codigo INT, @idProveedor INT, @idCategoriaProducto INT, @nombreProducto NVARCHAR(50), @stock INT, @precio DECIMAL(10,2), @marca NVARCHAR(40) ,@fechaCaducidad DATE
 AS
 BEGIN TRANSACTION 
 	BEGIN TRY-- se usa el transaction para evitar errores	
@@ -604,59 +498,67 @@ BEGIN TRANSACTION
 
 			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
 			 VALUES ('SE ACTUALIZO EL PRODUCTO:' + CAST(@codigo AS VARCHAR),  'PRODUCTO', 'ACTUALIZACIÓN EXITOSA', @Empleado);
-			SET @mens='ACTUALIZACION CORRECTA';
 			END
-			ELSE
-			BEGIN
-			SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
 
-
---PROCEDIMIENTO DE ELIMINAR USUARIO	
-CREATE PROCEDURE ELIMINARPRODUCTO @Empleado INT, @Codigo INT, @mens TEXT OUT
+-----------------------------------------EN PROCESO----------------------------------------------------
+--PROCEDIMIENTO DE ELIMINAR PRODUCTO	
+CREATE PROCEDURE ELIMINARPRODUCTO @Empleado INT, @Codigo INT
 AS
 BEGIN TRANSACTION
 	BEGIN TRY
 		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado) --Debe existir ese empleado
 		BEGIN
+
 			if exists(SELECT * FROM PRODUCTO.Producto WHERE idProducto=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
 				DELETE FROM PRODUCTO.Producto WHERE idProducto=@Codigo
-				SET @mens='PRODUCTO' + CAST(@Codigo AS VARCHAR) + ' SE HA ELIMINADO';
 				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 				VALUES ('SE ELIMINO EL PRODUCTO:'+ CAST(@Codigo AS VARCHAR), 'PRODUCTO', 'ELIMINACION EXITOSA', @Empleado);
 			END
-			ELSE
-			BEGIN
-				SET @mens='NO EXISTE REGISTRO CON ESE CODIGO';
-			END
-		END
-		ELSE
-		BEGIN
-			SET @mens='EL CODIGO DE EMPLEADO QUE INGRESO NO EXISTE';
+
 		END
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
-		SET @mens=ERROR_MESSAGE();
 	END CATCH
 GO
 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+--PROCEDIMIENTO DE ACTUALIZAR PROVEEDOR	
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--PROCEDIMIENTO DE AGREGAR PROVEEDOR
+CREATE PROCEDURE AGREGARPROVEEDOR @Empleado INT, @nombreProveedor NVARCHAR(50), @telefonoProveedor CHAR(9), @celularproveedor CHAR(9), @direccionProveedor TEXT, @descripcionProveedor TEXT, @correoProveedor NVARCHAR(80)
+AS
+begin TRANSACTION
+	BEGIN TRY
+		declare @idProveedor INT;
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+			INSERT INTO PRODUCTO.Proveedor(nombreProveedor, telefonoProveedor, celularProveedor, direccionProveedor, descripcionProveedor, correoProveedor)
+			VALUES (@nombreProveedor, @telefonoProveedor, @celularproveedor, @direccionProveedor, @descripcionProveedor, @correoProveedor);
+			set @idProveedor=(SELECT idProveedor FROM PRODUCTO.Proveedor WHERE nombreProveedor=@nombreProveedor);
+			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+			VALUES ('SE AÑADIÓ UN PROVEEDOR: '+CAST(@idProveedor AS varchar), 'PROVEEDOR', 'INSERCIÓN EXITOSA', @Empleado);
+		END
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+	END CATCH
+GO
 
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -667,40 +569,28 @@ GO
 --================================================================EMPLEADO(INSERCION)================================================================================
 
 --Agregar un Empleado en la tabla REGISTROS.Empleado(nombreEmpleado, apellidoEmpleado, fechaIngreso, puesto, sexo, telefono, direccion, correoEmpleado)
-DECLARE @mens VARCHAR(180);
-EXEC AGREGAREMPLEADO 'Ned', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com', @mens OUT
-PRINT @mens;
+
+EXEC AGREGAREMPLEADO 'Ned', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com'
 go
 
-DECLARE @mens VARCHAR(180);
-EXEC ACTUALIZAREMPLEADO  01, 01, 'ned1', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com', @mens OUT
-PRINT @mens;
+EXEC ACTUALIZAREMPLEADO  01, 01, 'ned1', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com'
 go
 
-DECLARE @mens VARCHAR(180);
-EXEC ELIMINAREMPLEADO 01,01, @mens OUT
-PRINT @mens;
+EXEC ELIMINAREMPLEADO 01,01
 go
 
 
 --================================================================CLIENTE(INSERCION)================================================================================
 
 --Agregar un Cliente en la tabla REGISTROS.Cliente (Identidad del empleado, nombreCliente, apellidoCliente, identidad, sexo, telefono, direccion, correoCliente)
-DECLARE @mens VARCHAR(180);
-EXEC AGREGARCLIENTE 01,'Pepe', 'Hernandéz', '0313199900498', 'M', '97895670', 'Comayagua', 'Crishy@yahoo.com', @mens OUT
-PRINT @mens;
+
+EXEC AGREGARCLIENTE 01,'Pepe', 'Hernandéz', '0313199900498',2, 'M', '97895670', 'Comayagua', 'Crishy@yahoo.com'
 go
 
-
-DECLARE @mens VARCHAR(180);
-EXEC ACTUALIZARCLIENTE 01,01,'PepeEE', 'Hernandéz', '0313199900498', 'M', '97895670', 'Comayagua', 'Crishy@yahoo.com' ,@mens OUT
-PRINT @mens;
+EXEC ACTUALIZARCLIENTE 01,01,'PepeEE', 'Hernandéz', '0313199900498',3, 'M', '97895670', 'Comayagua', 'Crishy@yahoo.com' 
 go
 
-
-DECLARE @mens VARCHAR(180);
-EXEC ELIMINARCLIENTE 01,02, @mens OUT
-PRINT @mens;
+EXEC ELIMINARCLIENTE 01,01
 go
 
 
@@ -708,21 +598,13 @@ go
 
 --Agregar un Cliente en la tabla REGISTROS.Usuario (Identidad del empleado, nombre del usuario, password, nivel del usuario)
 
-
-DECLARE @mens VARCHAR(180);
-EXEC AGREGARUSUARIO 01,'usu', 'arroz09', 'empleado',@mens OUT
-PRINT @mens;
+EXEC AGREGARUSUARIO 01,'usu', 'arroz09', 'empleado'
 go
 
-
-DECLARE @mens VARCHAR(180);
-EXEC ACTUALIZARUSUARIO 01,01,'usu2', 'arroz09', 'empleado',@mens OUT
-PRINT @mens;
+EXEC ACTUALIZARUSUARIO 01,01,'usu2', 'arroz09', 'empleado'
 go
 
-DECLARE @mens VARCHAR(180);
-EXEC ELIMINARUSUARIO 01,01 ,@mens OUT
-PRINT @mens;
+EXEC ELIMINARUSUARIO 01,01 
 go
 
 
@@ -731,20 +613,13 @@ go
 --Agregar un Cliente en la tabla PRODUCTO.CaterogoriaProducto (Identidad del empleado, nombre de la categoria)
 
 
-DECLARE @mens VARCHAR(180);
-EXEC AGREGARCATEGORIAPRODUCTO  01,'Alimentos',@mens OUT
-PRINT @mens;
+EXEC AGREGARCATEGORIAPRODUCTO  01,'Alimentos'
 go
 
-
-DECLARE @mens VARCHAR(180);
-EXEC  ACTUALIZARCATEGORIAPRODUCTO 01,01,'Alimentos Procesados' ,@mens OUT
-PRINT @mens;
+EXEC  ACTUALIZARCATEGORIAPRODUCTO 01,01,'Alimentos Procesados'
 go
 
-DECLARE @mens VARCHAR(180);
-EXEC ELIMINARCATEGORIAPRODUCTO 01, 01 ,@mens OUT
-PRINT @mens;
+EXEC ELIMINARCATEGORIAPRODUCTO 01, 01 
 go
 
 
@@ -752,19 +627,15 @@ go
 --================================================================PRODUCTO(INSERCION)================================================================================
 
 --Agregar un Producto en la tabla PRODUCTO.Producto(empleado,id Proveedor, id categoria Producto, nombreProducto,stock, precio, marca, fecha de Caducidad)
-DECLARE @mens VARCHAR(180);
-EXEC AGREGARPRODUCTO 01,01,01,'Pasta', 12, 15.00, 'Mi Pasta', '12/01/02', @mens OUT
-PRINT @mens;
+
+EXEC AGREGARPRODUCTO 01,01,01,'Pasta', 12, 15.00, 'Mi Pasta', '12/01/02'
 go
 
-DECLARE @mens VARCHAR(180);
-EXEC ACTUALIZARPRODUCTO  1, 01,01,01 ,'Pasta Italiana', 14, 15.00, 'Mi Pasta', '12/01/02', @mens OUT
-PRINT @mens;
+EXEC ACTUALIZARPRODUCTO  01, 01,01,01 ,'Pasta Italiana', 14, 15.00, 'Mi Pasta', '12/01/02'
 go
 
-DECLARE @mens VARCHAR(180);
-EXEC ELIMINARPRODUCTO 01,01, @mens OUT
-PRINT @mens;
+
+EXEC ELIMINARPRODUCTO 01,02
 go
 
 
@@ -772,9 +643,6 @@ INSERT INTO PRODUCTO.Proveedor(nombreProveedor, telefonoProveedor, celularProvee
  VALUES( 'Distribuidora Lopez', '27730987', '98765432', 'San Pedro Sula', 'Eficiente', 'Lopez@gmail.com')
  GO
  
-delete from PRODUCTO.Proveedor where idProveedor =2
-go
-
 
 /*
 SELECT * FROM PERSONA.Cliente
