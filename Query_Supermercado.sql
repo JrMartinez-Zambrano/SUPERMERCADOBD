@@ -333,19 +333,16 @@ GO
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 --PROCEDIMIENTO DE AGREGAR USUARIO	
-CREATE PROCEDURE AGREGARUSUARIO @Empleado INT, @nombreUsuario NVARCHAR(25), @passwordUsuario NVARCHAR(12), @nivelUsuario VARCHAR(15)
+CREATE PROCEDURE AGREGARUSUARIO  @nombreUsuario NVARCHAR(25), @passwordUsuario NVARCHAR(12), @nivelUsuario VARCHAR(15)
 AS
 begin TRANSACTION
 	BEGIN TRY
 		declare @idUsuario INT;
-		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
-		BEGIN
 			INSERT INTO PERSONA.Usuario(nombreUsuario, passwordUsuario, nivelUsuario)
 			VALUES (@nombreUsuario, @passwordUsuario, @nivelUsuario);
 			set @idUsuario=(SELECT idUsuario FROM PERSONA.Usuario WHERE nombreUsuario= @nombreUsuario);
 			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
-			VALUES ('SE AÑADIÓ UN USUARIO: '+CAST(@idUsuario AS varchar), 'USUARIO', 'INSERCIÓN EXITOSA', @Empleado);
-		END
+			VALUES ('SE AÑADIÓ UN USUARIO: '+CAST(@idUsuario AS varchar), 'USUARIO', 'INSERCIÓN EXITOSA',0);
 		COMMIT
 	END TRY
 	BEGIN CATCH
@@ -647,7 +644,7 @@ go
 
 --Agregar un Cliente en la tabla REGISTROS.Usuario (Identidad del empleado, nombre del usuario, password, nivel del usuario)
 
-EXEC AGREGARUSUARIO 01,'usu', 'arroz09', 'empleado'
+EXEC AGREGARUSUARIO 'usu', 'arroz09', 'empleado'
 go
 
 EXEC ACTUALIZARUSUARIO 01,01,'usu2', 'arroz09', 'empleado'
@@ -702,13 +699,6 @@ go
 EXEC ELIMINARPRODUCTO 01,01
 go
 
-
-
-
-INSERT INTO PRODUCTO.Proveedor(nombreProveedor, telefonoProveedor, celularProveedor, direccionProveedor, descripcionProveedor, correoProveedor)
- VALUES( 'Distribuidora Lopez', '27730987', '98765432', 'San Pedro Sula', 'Eficiente', 'Lopez@gmail.com')
- GO
- 
 
 /*
 SELECT * FROM PERSONA.Cliente
