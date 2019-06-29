@@ -68,6 +68,7 @@ CREATE TABLE PERSONA.Empleado
  apellidoEmpleado NVARCHAR(80) NOT NULL,
  fechaIngreso NVARCHAR(8) NOT NULL,
  puesto NVARCHAR(60) NOT NULL,
+ estadoEmpleado VARCHAR (20)  DEFAULT ('ACTIVO/A') NULL,
  sexo CHAR(1) NOT NULL,
  telefono CHAR(9) NULL,
  direccion TEXT NOT NULL,
@@ -79,6 +80,7 @@ CREATE TABLE PERSONA.Usuario
  idUsuario INT IDENTITY(1,1) PRIMARY KEY CLUSTERED,
  nombreUsuario NVARCHAR(25) NOT NULL,
  passwordUsuario NVARCHAR(12) NOT NULL,
+ estadoUsuario VARCHAR (20)  DEFAULT ('ACTIVO/A') NULL,
  nivelUsuario NVARCHAR(15) NOT NULL
 )
 
@@ -90,12 +92,14 @@ CREATE TABLE PRODUCTO.Proveedor
  celularProveedor CHAR(9) NULL,
  direccionProveedor TEXT NOT NULL,
  descripcionProveedor TEXT NULL,
+ estadoProveedor VARCHAR (20)  DEFAULT ('ACTIVO/A') NULL,
  correoProveedor NVARCHAR(80) NOT NULL
 )
 
 CREATE TABLE PRODUCTO.CategoriaProducto
 (
  idCategoriaProducto INT IDENTITY(1,1) PRIMARY KEY CLUSTERED,
+ estadoCategoriaProducto VARCHAR (20)  DEFAULT ('ACTIVO/A') NULL,
  nombreCategoria NVARCHAR(30) NOT NULL
 )
 
@@ -106,6 +110,7 @@ CREATE TABLE PRODUCTO.Producto
  idProveedor INT NOT NULL,
  idCategoriaProducto INT NOT NULL,
  nombreProducto NVARCHAR(50) NOT NULL,
+ estadoProducto VARCHAR (20)  DEFAULT ('ACTIVO/A') NULL,
  stock INT NOT NULL,
  precio DECIMAL(10,2) NOT NULL,
  marca NVARCHAR(40) NOT NULL,
@@ -313,10 +318,10 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Codigo) 
 			BEGIN
-				DELETE FROM PERSONA.Empleado WHERE idEmpleado=@Codigo
-				INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
-				VALUES ('SE ELIMINO EMPLEADO:'+ CAST(@Codigo AS VARCHAR), 'EMPLEADO', 'ELIMINACIÓN EXITOSA', @Empleado);
-			END
+					update PERSONA.Empleado SET estadoEmpleado='INACTIVO/A' WHERE idEmpleado=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
+					INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+					VALUES ('SE CAMBIO ESTADO EMPLEADO:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'EMPLEADO', 'EMPLEADO INACTIVO', @Empleado);
+			END		
 		END
 		COMMIT TRANSACTION
 	END TRY
@@ -380,10 +385,10 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PERSONA.Usuario WHERE idUsuario=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
-				DELETE FROM PERSONA.Usuario WHERE idUsuario=@Codigo
-				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
-				VALUES ('SE ELIMINO USUARIO:'+ CAST(@Codigo AS VARCHAR), 'USUARIO', 'ELIMINACION EXITOSA', @Empleado);
-			END
+					update PERSONA.Usuario SET estadoUsuario='INACTIVO/A' WHERE idUsuario=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
+					INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+					VALUES ('SE CAMBIO ESTADO USUARIO:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'USUARIO', ' INACTIVO', @Empleado);
+			END   
 		END
 		COMMIT TRANSACTION
 	END TRY
@@ -447,9 +452,9 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
-				DELETE FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@Codigo
-				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
-				VALUES ('SE ELIMINO LA CATEGORIA:'+ CAST(@Codigo AS VARCHAR), 'CATEGORIAPRODUCTO', 'ELIMINACION EXITOSA', @Empleado);
+				update PRODUCTO.CategoriaProducto SET estadoCategoriaProducto='INACTIVO/A' WHERE idCategoriaProducto=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
+					INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+					VALUES ('SE CAMBIO ESTADO CATEGORIA PRODUCTO:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'CATEGORIAPRODUCTO', ' INACTIVO', @Empleado);
 			END
 		END
 		COMMIT TRANSACTION
@@ -519,9 +524,9 @@ BEGIN TRANSACTION
 
 			if exists(SELECT * FROM PRODUCTO.Producto WHERE idProducto=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
-				DELETE FROM PRODUCTO.Producto WHERE idProducto=@Codigo
-				 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
-				VALUES ('SE ELIMINO EL PRODUCTO:'+ CAST(@Codigo AS VARCHAR), 'PRODUCTO', 'ELIMINACION EXITOSA', @Empleado);
+				update PRODUCTO.Producto SET estadoProducto='INACTIVO/A' WHERE idProducto=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
+				INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+				VALUES ('SE CAMBIO ESTADO PRODUCTO:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'PRODUCTO', ' INACTIVO', @Empleado);
 			END
 
 		END
@@ -573,10 +578,10 @@ GO
 EXEC AGREGAREMPLEADO 'Ned', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com'
 go
 
-EXEC ACTUALIZAREMPLEADO  01, 01, 'ned1', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com'
+EXEC ACTUALIZAREMPLEADO  01, 02, 'ned1', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com'
 go
 
-EXEC ELIMINAREMPLEADO 01,01
+EXEC ELIMINAREMPLEADO 01,02
 go
 
 
@@ -635,7 +640,7 @@ EXEC ACTUALIZARPRODUCTO  01, 01,01,01 ,'Pasta Italiana', 14, 15.00, 'Mi Pasta', 
 go
 
 
-EXEC ELIMINARPRODUCTO 01,02
+EXEC ELIMINARPRODUCTO 01,01
 go
 
 
