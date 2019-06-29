@@ -318,7 +318,7 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Codigo) 
 			BEGIN
-					update PERSONA.Empleado SET estadoEmpleado='INACTIVO/A' WHERE idEmpleado=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
+					update PERSONA.Empleado SET estadoEmpleado='INACTIVO/A' WHERE idEmpleado=@Codigo; 
 					INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 					VALUES ('SE CAMBIO ESTADO EMPLEADO:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'EMPLEADO', 'EMPLEADO INACTIVO', @Empleado);
 			END		
@@ -385,7 +385,7 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PERSONA.Usuario WHERE idUsuario=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
-					update PERSONA.Usuario SET estadoUsuario='INACTIVO/A' WHERE idUsuario=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
+					update PERSONA.Usuario SET estadoUsuario='INACTIVO/A' WHERE idUsuario=@Codigo; 
 					INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 					VALUES ('SE CAMBIO ESTADO USUARIO:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'USUARIO', ' INACTIVO', @Empleado);
 			END   
@@ -452,7 +452,7 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PRODUCTO.CategoriaProducto WHERE idCategoriaProducto=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
-				update PRODUCTO.CategoriaProducto SET estadoCategoriaProducto='INACTIVO/A' WHERE idCategoriaProducto=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
+				update PRODUCTO.CategoriaProducto SET estadoCategoriaProducto='INACTIVO/A' WHERE idCategoriaProducto=@Codigo;
 					INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 					VALUES ('SE CAMBIO ESTADO CATEGORIA PRODUCTO:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'CATEGORIAPRODUCTO', ' INACTIVO', @Empleado);
 			END
@@ -513,7 +513,7 @@ BEGIN TRANSACTION
 GO
 
 
------------------------------------------EN PROCESO----------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
 --PROCEDIMIENTO DE ELIMINAR PRODUCTO	
 CREATE PROCEDURE ELIMINARPRODUCTO @Empleado INT, @Codigo INT
 AS
@@ -524,7 +524,7 @@ BEGIN TRANSACTION
 
 			if exists(SELECT * FROM PRODUCTO.Producto WHERE idProducto=@Codigo) --Debe existir un cliente con ese codigo
 			BEGIN
-				update PRODUCTO.Producto SET estadoProducto='INACTIVO/A' WHERE idProducto=@Codigo; --Si el cliente tiene compras no se elimina, solo se le cambia el estado
+				update PRODUCTO.Producto SET estadoProducto='INACTIVO/A' WHERE idProducto=@Codigo;
 				INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 				VALUES ('SE CAMBIO ESTADO PRODUCTO:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'PRODUCTO', ' INACTIVO', @Empleado);
 			END
@@ -536,10 +536,6 @@ BEGIN TRANSACTION
 		ROLLBACK TRANSACTION
 	END CATCH
 GO
-
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
---PROCEDIMIENTO DE ACTUALIZAR PROVEEDOR	
 
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -559,6 +555,54 @@ begin TRANSACTION
 			VALUES ('SE AÑADIÓ UN PROVEEDOR: '+CAST(@idProveedor AS varchar), 'PROVEEDOR', 'INSERCIÓN EXITOSA', @Empleado);
 		END
 		COMMIT
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+	END CATCH
+GO
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--PROCEDIMIENTO DE ACTUALIZAR PROVEEDOR	
+CREATE PROCEDURE ACTUALIZARPROVEEDOR @Empleado INT,@codigo INT, @nombreProveedor NVARCHAR(50), @telefonoProveedor CHAR(9), @celularproveedor CHAR(9), @direccionProveedor TEXT, @descripcionProveedor TEXT, @correoProveedor NVARCHAR(80)
+AS
+BEGIN TRANSACTION 
+	BEGIN TRY-- se usa el transaction para evitar errores	
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+			if exists(SELECT * FROM PRODUCTO.Proveedor WHERE idProveedor=@codigo)
+			BEGIN
+			UPDATE PRODUCTO.Proveedor SET nombreProveedor= @nombreProveedor,telefonoProveedor = @telefonoProveedor, celularproveedor = @celularproveedor, direccionProveedor = @direccionProveedor, descripcionProveedor  = @descripcionProveedor , correoProveedor = @correoProveedor WHERE idProveedor=@codigo;
+			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
+			 VALUES ('SE ACTUALIZO EL PROVEEDOR:' + CAST(@codigo AS VARCHAR),  'PROVEEDOR', 'ACTUALIZACIÓN EXITOSA', @Empleado);
+			END
+		END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+	END CATCH
+GO
+
+---------------------------------------------------------------------------------------------------------------------------
+--PROCEDIMIENTO DE ELIMINAR PROVEEDOR	
+CREATE PROCEDURE ELIMINARPROVEEDOR @Empleado INT, @Codigo INT
+AS
+BEGIN TRANSACTION
+	BEGIN TRY
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado) --Debe existir ese empleado
+		BEGIN
+
+			if exists(SELECT * FROM PRODUCTO.Proveedor WHERE idProveedor=@Codigo) 
+			BEGIN
+				update PRODUCTO.Proveedor SET estadoProveedor='INACTIVO/A' WHERE idProveedor=@Codigo;
+				INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
+				VALUES ('SE CAMBIO ESTADO PROVEEDOR:'+ CAST(@Codigo AS VARCHAR) + ' A INACTIVO', 'PROVEEDOR', ' INACTIVO', @Empleado);
+			END
+
+		END
+		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION
@@ -628,6 +672,21 @@ EXEC ELIMINARCATEGORIAPRODUCTO 01, 01
 go
 
 
+--================================================================PROVEEDOR(INSERCION)================================================================================
+
+--Agregar un Proveedor en la tabla PRODUCTO.Producto(empleado, nombre proveedor, telefono, celular, ubicacion, descripcion, correo)
+
+EXEC AGREGARPROVEEDOR 01,'Distribuidora Lopez', '27730987', '98765432', 'San Pedro Sula', 'Eficiente', 'Lopez@gmail.com'
+go
+
+EXEC ACTUALIZARPROVEEDOR  01, 01,'Distribuidora Hernandez', '27730987', '98765432', 'San Pedro Sula', 'Excelente', 'Lopez@gmail.com'
+go
+
+
+EXEC ELIMINARPROVEEDOR 01,01
+go
+
+
 
 --================================================================PRODUCTO(INSERCION)================================================================================
 
@@ -642,6 +701,8 @@ go
 
 EXEC ELIMINARPRODUCTO 01,01
 go
+
+
 
 
 INSERT INTO PRODUCTO.Proveedor(nombreProveedor, telefonoProveedor, celularProveedor, direccionProveedor, descripcionProveedor, correoProveedor)
