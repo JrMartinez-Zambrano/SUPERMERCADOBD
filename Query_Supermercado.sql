@@ -7,7 +7,7 @@ USE tempdb
 GO
 
 
- --alter database SUPERMERCADO set single_user with rollback immediate
+ alter database SUPERMERCADO set single_user with rollback immediate
 
 IF EXISTS(SELECT * FROM sys.databases WHERE name='SUPERMERCADO')
 BEGIN
@@ -194,15 +194,15 @@ GO
 
 
 --PROCEDIMIENTO DE AGREGAR CLIENTE
-CREATE PROCEDURE AGREGARCLIENTE @Empleado INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(80), @identidad VARCHAR(15), @vecesCompra INT, @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80)
+CREATE PROCEDURE AGREGARCLIENTE @Empleado INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(80), @identidad VARCHAR(15), @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80)
 AS
 BEGIN TRANSACTION
 	BEGIN TRY
 		DECLARE @idCliente INT;
 		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
 		 BEGIN
-			INSERT INTO PERSONA.Cliente(nombreCliente, apellidoCliente, identidad, vecesCompra, sexo, telefono, direccion, correoCliente)
-			VALUES (@nombreCliente, @apellidoCliente, @identidad,@vecesCompra, @sexo, @telefono, @direccion, @correoCliente);
+			INSERT INTO PERSONA.Cliente(nombreCliente, apellidoCliente, identidad,sexo, telefono, direccion, correoCliente)
+			VALUES (@nombreCliente, @apellidoCliente, @identidad, @sexo, @telefono, @direccion, @correoCliente);
 			set @idCliente=(SELECT idCliente FROM PERSONA.Cliente WHERE identidad=@identidad);
 			 INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado)
 			VALUES ('SE AÑADIÓ UN CLIENTE: '+CAST(@idCliente AS varchar), 'CLIENTE', 'INSERCIÓN EXITOSA', @Empleado);
@@ -216,7 +216,7 @@ GO
 
 
 --PROCEDIMIENTO ACTUALIZAR CLIENTE
-CREATE PROCEDURE ACTUALIZARCLIENTE @Empleado INT,@codigo INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(50), @identidad VARCHAR(15),@vecesCompra INT, @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80)
+CREATE PROCEDURE ACTUALIZARCLIENTE @Empleado INT,@codigo INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(50), @identidad VARCHAR(15), @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80)
 AS
 BEGIN TRANSACTION 
 	BEGIN TRY-- se usa el transaction para evitar errores	
@@ -224,7 +224,7 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PERSONA.Cliente WHERE idCliente=@codigo)
 			BEGIN
-			UPDATE PERSONA.Cliente SET nombreCliente = @nombreCliente, apellidoCliente = @apellidoCliente, identidad = @identidad , vecesCompra  = @vecesCompra, sexo =  @sexo, telefono = @telefono, direccion = @direccion, correoCliente = @correoCliente WHERE IdCliente=@codigo;
+			UPDATE PERSONA.Cliente SET nombreCliente = @nombreCliente, apellidoCliente = @apellidoCliente, identidad = @identidad ,  sexo =  @sexo, telefono = @telefono, direccion = @direccion, correoCliente = @correoCliente WHERE IdCliente=@codigo;
 
 			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
 			 VALUES ('SE ACTUALIZO CLIENTE:' + CAST(@codigo AS VARCHAR),  'CLIENTE', 'ACTUALIZACIÓN EXITOSA', @Empleado);
@@ -607,6 +607,61 @@ BEGIN TRANSACTION
 GO
 
 
+
+
+
+--AGREGAR FACTURA
+
+CREATE PROCEDURE AGREGARFACTURA @Empleado INT, @IdCliente INT , @IdEmpleado INT
+AS
+begin TRANSACTION
+	BEGIN TRY
+		DECLARE @idFactura INT;
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
+		BEGIN
+		    IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@IdEmpleado) 
+		     BEGIN
+			  IF EXISTS(SELECT * FROM PERSONA.Cliente WHERE idCliente=@IdCliente)
+		       BEGIN
+
+			   DECLARE @CONTADOR INT;
+			   INSERT INTO REGISTRO.Factura (idCliente, idEmpleado) 
+			   VALUES (@IdCliente, @idEmpleado);
+
+			   SET @idFactura=(SELECT idFactura FROM Registro.Factura WHERE idCliente=@IdCliente);
+			   INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado) --GUARDA EN MOVIMIENTOS PRIMERO POR QUE SE NECESITA CAPTURAR DATOS DE INSERTED PARA REALIZAR OPERACIONES
+			   VALUES ('SE AGREGO UNA FACTURA: ' + CAST (@IdFactura AS VARCHAR) + ' AL CLIENTE : ' + CAST (@IdCliente AS VARCHAR) ,'FACTURA', 'INSERT CORRECTO', @Empleado);
+
+			   IF ISNULL((SELECT vecesCompra FROM PERSONA.Cliente WHERE IdCliente=@IdCliente),0)=0 --SI LAS VECES QUE HA COMPRADO ES NULL SE HARA 0
+			   BEGIN
+				SET @CONTADOR=0;
+			   END
+			    ELSE
+			   BEGIN
+					SET @CONTADOR=(SELECT vecesCompra FROM PERSONA.Cliente WHERE idCliente=@IdCliente); --SI YA TIENE 1 O MAS COMPRAS SE HARA LA SUMA
+			   END
+			   UPDATE PERSONA.Cliente SET  vecesCompra=@CONTADOR+1 WHERE idCliente=@idCliente; --SE ACTUALIZA LAS VECES COMPRA DEL CLIENTE
+			   IF (SELECT estadoCliente FROM PERSONA.Cliente WHERE idCliente=@idCliente)='INACTIVO/A' --SI ESTA INACTIVO PASA EL ESTADO A ACTIVO
+			   BEGIN
+				UPDATE PERSONA.Cliente SET estadoCliente='ACTIVO/A' WHERE idCliente=@idCliente; --PASA A ACTIVO EL ESTADO
+			   END
+		 END
+
+			 END
+		END
+		COMMIT
+END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+	END CATCH
+GO
+
+
+
+
+
+
+
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------***INSERCION DE DATOS****------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -616,13 +671,13 @@ GO
 
 --Agregar un Empleado en la tabla REGISTROS.Empleado(nombreEmpleado, apellidoEmpleado, fechaIngreso, puesto, sexo, telefono, direccion, correoEmpleado)
 
-EXEC AGREGAREMPLEADO 'Ned', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com'
+EXEC AGREGAREMPLEADO 'Nedysa', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com'
 go
 
 EXEC ACTUALIZAREMPLEADO  01, 02, 'ned1', 'Flanders', '09/09/99', 'Gerente', 'M', '96878765','San Miguel','Mfr@gmail.com'
 go
 
-EXEC ELIMINAREMPLEADO 01,02
+EXEC ELIMINAREMPLEADO 02,01
 go
 
 
@@ -630,15 +685,18 @@ go
 
 --Agregar un Cliente en la tabla REGISTROS.Cliente (Identidad del empleado, nombreCliente, apellidoCliente, identidad, sexo, telefono, direccion, correoCliente)
 
-EXEC AGREGARCLIENTE 01,'Pepe', 'Hernandéz', '0313199900498',2, 'M', '97895670', 'Comayagua', 'Crishy@yahoo.com'
+EXEC AGREGARCLIENTE 02,'Peperfr', 'Hernandéz', '0313199900418', 'M', '97895670', 'Comayaguad', 'Crishy@yahoo.com'
 go
 
-EXEC ACTUALIZARCLIENTE 01,01,'PepeEE', 'Hernandéz', '0313199900498',3, 'M', '97895670', 'Comayagua', 'Crishy@yahoo.com' 
+EXEC ACTUALIZARCLIENTE 01,02,'PepeEE', 'Hernandéz', '0313199900498','M', '97895670', 'Comayagua', 'Crishy@yahoo.com' 
 go
 
-EXEC ELIMINARCLIENTE 01,01
+EXEC ELIMINARCLIENTE 01,03
 go
 
+
+EXEC AGREGARFACTURA 02,03,01
+go
 
 --================================================================USUARIO(INSERCION)================================================================================
 
@@ -673,7 +731,7 @@ go
 
 --Agregar un Proveedor en la tabla PRODUCTO.Producto(empleado, nombre proveedor, telefono, celular, ubicacion, descripcion, correo)
 
-EXEC AGREGARPROVEEDOR 01,'Distribuidora Lopez', '27730987', '98765432', 'San Pedro Sula', 'Eficiente', 'Lopez@gmail.com'
+EXEC AGREGARPROVEEDOR 02,'Distribuidoraas Lopez', '27730947', '98765431', 'San Pedro Sulas', 'Eficiente', 'Lopez@gmail.com'
 go
 
 EXEC ACTUALIZARPROVEEDOR  01, 01,'Distribuidora Hernandez', '27730987', '98765432', 'San Pedro Sula', 'Excelente', 'Lopez@gmail.com'
@@ -700,11 +758,14 @@ EXEC ELIMINARPRODUCTO 01,01
 go
 
 
+
+--================================================================FACTURA(INSERCION)================================================================================
+
+--Agregar una Factura en la tabla REGISTRO.Factura (Identidad del empleado, nombre del usuario, password, nivel del usuario)
+
 /*
 SELECT * FROM PERSONA.Cliente
 GO
-
-
 
 SELECT * FROM PERSONA.Empleado
 GO
@@ -718,24 +779,13 @@ GO
 SELECT * FROM PRODUCTO.Producto
 GO
 
-
-
-SELECT * FROM REGISTRO.Movimiento
-GO
+SELECT * FROM REGISTRO.Factura
+go
 
 SELECT * FROM PERSONA.Usuario
 GO
 
-delete from PERSONA.Cliente where idCliente = 1
-go
-
-TRUNCATE TABLE PERSONA.Empleado
-GO
-
-TRUNCATE TABLE PERSONA.Cliente
-GO
-
-TRUNCATE TABLE REGISTRO.Movimiento 
+SELECT * FROM REGISTRO.Movimiento
 GO
 
 */
