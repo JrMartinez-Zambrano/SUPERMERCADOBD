@@ -224,7 +224,7 @@ BEGIN TRANSACTION
 		BEGIN
 			if exists(SELECT * FROM PERSONA.Cliente WHERE nombreCliente=@nombreCliente)
 			BEGIN
-			UPDATE PERSONA.Cliente SET nombreCliente = @nombreCliente, apellidoCliente = @apellidoCliente, identidad = @identidad ,  sexo =  @sexo, telefono = @telefono, direccion = @direccion, correoCliente = @correoCliente WHERE IdCliente=@codigo;
+			UPDATE PERSONA.Cliente SET nombreCliente = @nombreCliente, apellidoCliente = @apellidoCliente, identidad = @identidad ,  sexo =  @sexo, telefono = @telefono, direccion = @direccion, correoCliente = @correoCliente WHERE identidad=@identidad;
 
 			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
 			 VALUES ('SE ACTUALIZO CLIENTE:' +@nombreCliente ,  'CLIENTE', 'ACTUALIZACIÓN EXITOSA', @Empleado);
@@ -611,21 +611,19 @@ GO
 
 --AGREGAR FACTURA
 
-CREATE PROCEDURE AGREGARFACTURA @Empleado INT, @IdCliente INT , @IdEmpleado INT
+CREATE PROCEDURE AGREGARFACTURA @Empleado INT, @IdCliente INT 
 AS
 begin TRANSACTION
 	BEGIN TRY
 		DECLARE @idFactura INT;
-		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
-		BEGIN
-		    IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@IdEmpleado) 
+		    IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado) 
 		     BEGIN
 			  IF EXISTS(SELECT * FROM PERSONA.Cliente WHERE idCliente=@IdCliente)
 		       BEGIN
 
 			   DECLARE @CONTADOR INT;
 			   INSERT INTO REGISTRO.Factura (idCliente, idEmpleado) 
-			   VALUES (@IdCliente, @idEmpleado);
+			   VALUES (@IdCliente, @Empleado);
 
 			   SET @idFactura=(SELECT idFactura FROM Registro.Factura WHERE idCliente=@IdCliente);
 			   INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado) --GUARDA EN MOVIMIENTOS PRIMERO POR QUE SE NECESITA CAPTURAR DATOS DE INSERTED PARA REALIZAR OPERACIONES
@@ -645,8 +643,6 @@ begin TRANSACTION
 				UPDATE PERSONA.Cliente SET estadoCliente='ACTIVO/A' WHERE idCliente=@idCliente; --PASA A ACTIVO EL ESTADO
 			   END
 		 END
-
-			 END
 		END
 		COMMIT
 END TRY
@@ -660,8 +656,42 @@ GO
 --AGREGAR DETALLE DE FACTURA
 
 
-
-
+--AGREGAR DETALLE PEDIDO 
+CREATE PROCEDURE AGREGARDETALLEFACTURA @EMPLEADO INT, @ID_PRODUCTO INT,@IDFACTURA INT, @CANTIDAD INT, @TOTAL INT
+AS
+begin TRANSACTION
+	BEGIN TRY
+		IF EXISTS(SELECT * FROM PRODUCTO.Producto WHERE idProducto=@ID_PRODUCTO) --VERIFICA SI EXISTE EL PRODUCTO
+		BEGIN
+		IF EXISTS(SELECT * FROM REGISTRO.Factura WHERE IdFactura=@IDFACTURA) --VERIFICA SI EXISTE LA FACTURA
+		BEGIN
+		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE IdEmpleado=@EMPLEADO) --VERIFICA SI EXISTE EL EMPLEADO
+		BEGIN
+			IF @CANTIDAD<=(SELECT stock FROM PRODUCTO.Producto WHERE idProducto=@ID_PRODUCTO) --Ver si hay productos en existencia, en el caso de no haber no se puede realizar la compra
+			BEGIN
+				DECLARE @PRECIO MONEY,
+				@NOMBRE NVARCHAR(50),
+				@CONTADOR INT,
+				@STOCKACTU INT;
+				SET @PRECIO=(SELECT Precio FROM PRODUCTO.Producto WHERE IdProducto=@ID_PRODUCTO); --SE TRAE EL PRECIO DESDE LA TABLA PRODUCTO CON SU ID
+				SET @NOMBRE=(SELECT nombreProducto FROM PRODUCTO.Producto WHERE idProducto=@ID_PRODUCTO); --SE TRAE EL NOMBRE DE LA TABLA PRODUCTO CON SU ID
+				INSERT INTO REGISTRO.DetalleFactura(IdFactura, IdProducto, Cantidad, Total) --AGREGA EL PEDIDO
+				VALUES (@IDFACTURA, @ID_PRODUCTO, @CANTIDAD, @TOTAL);
+				INSERT INTO REGISTRO.Movimiento(operacion, tabla, descripcion, encargado) --GUARDA EL MOVIMIENTO CON SUS DATOS
+				VALUES ('SE AGREGO UN PRODUCTO A LA FACTURA', 'FACTURA', 'INSERCION EXITOSA', @EMPLEADO);
+				SET @CONTADOR=(SELECT stock FROM PRODUCTO.Producto WHERE idProducto=@ID_PRODUCTO); --SE PROCEDE A GUARDAR EL CONTADOR QUE SERIA LA EXISTENCIA DEL PRODUCTO ACTUAL
+				SET @STOCKACTU=@CONTADOR-@CANTIDAD; --SE REALIZA LA RESTA
+				UPDATE PRODUCTO.Producto SET Stock=@STOCKACTU WHERE idProducto=@ID_PRODUCTO; --SE AGREGA EL NUEVO STOCK
+			END
+		END
+		END		
+		END
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+	END CATCH
+GO
 
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -687,7 +717,7 @@ go
 
 --Agregar un Cliente en la tabla REGISTROS.Cliente (Identidad del empleado, nombreCliente, apellidoCliente, identidad, sexo, telefono, direccion, correoCliente)
 
-EXEC AGREGARCLIENTE 02,'Peperfr', 'Hernandéz', '0313199900418', 'M', '97895670', 'Comayaguad', 'Crishy@yahoo.com'
+EXEC AGREGARCLIENTE 01,'Peperfr', 'Hernandéz', '0313199900418', 'M', '97895670', 'Comayaguad', 'Crishy@yahoo.com'
 go
 
 EXEC ACTUALIZARCLIENTE 01,02,'PepeEE', 'Hernandéz', '0313199900498','M', '97895670', 'Comayagua', 'Crishy@yahoo.com' 
@@ -696,9 +726,6 @@ go
 EXEC ELIMINARCLIENTE 01,03
 go
 
-
-EXEC AGREGARFACTURA 02,03,01
-go
 
 --================================================================USUARIO(INSERCION)================================================================================
 
@@ -733,7 +760,7 @@ go
 
 --Agregar un Proveedor en la tabla PRODUCTO.Producto(empleado, nombre proveedor, telefono, celular, ubicacion, descripcion, correo)
 
-EXEC AGREGARPROVEEDOR 02,'Distribuidoraas Lopez', '27730947', '98765431', 'San Pedro Sulas', 'Eficiente', 'Lopez@gmail.com'
+EXEC AGREGARPROVEEDOR 01,'Distribuidoraas Lopez', '27730947', '98765431', 'San Pedro Sulas', 'Eficiente', 'Lopez@gmail.com'
 go
 
 EXEC ACTUALIZARPROVEEDOR  01, 01,'Distribuidora Hernandez', '27730987', '98765432', 'San Pedro Sula', 'Excelente', 'Lopez@gmail.com'
@@ -760,6 +787,23 @@ EXEC ELIMINARPRODUCTO 01,01
 go
 
 
+--================================================================DETALLE DE FACTURA(INSERCION)================================================================================
+
+--Agregar un Detalle de Factura en la tabla REGISTRO.DetalleFactura(IdEmpleado,IdProducto, IdFactura , Cantidad, Total)
+
+EXEC AGREGARDETALLEFACTURA 01,01,01,5,123
+go
+
+EXEC AGREGARDETALLEFACTURA 01,01,01,6,112
+go
+
+--Agregar Factura (IdEmpleado, IdCliente)
+
+EXEC AGREGARFACTURA 01,01
+go
+
+
+
 
 --================================================================FACTURA(INSERCION)================================================================================
 
@@ -782,9 +826,12 @@ SELECT * FROM PRODUCTO.Producto
 GO
 
 SELECT * FROM REGISTRO.Factura
-go
+GO
 
 SELECT * FROM PERSONA.Usuario
+GO
+
+SELECT * FROM REGISTRO.DetalleFactura
 GO
 
 SELECT * FROM REGISTRO.Movimiento
