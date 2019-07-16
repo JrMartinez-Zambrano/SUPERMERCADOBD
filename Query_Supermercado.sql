@@ -216,18 +216,18 @@ GO
 
 
 --PROCEDIMIENTO ACTUALIZAR CLIENTE
-CREATE PROCEDURE ACTUALIZARCLIENTE @Empleado INT,@codigo INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(50), @identidad VARCHAR(15), @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80)
+CREATE PROCEDURE ACTUALIZARCLIENTE @Empleado INT, @nombreCliente NVARCHAR(50), @apellidoCliente NVARCHAR(50), @identidad VARCHAR(15), @sexo CHAR(1), @telefono CHAR(9), @direccion TEXT, @correoCliente NVARCHAR(80)
 AS
 BEGIN TRANSACTION 
 	BEGIN TRY-- se usa el transaction para evitar errores	
 		IF EXISTS(SELECT * FROM PERSONA.Empleado WHERE idEmpleado=@Empleado)
 		BEGIN
-			if exists(SELECT * FROM PERSONA.Cliente WHERE idCliente=@codigo)
+			if exists(SELECT * FROM PERSONA.Cliente WHERE nombreCliente=@nombreCliente)
 			BEGIN
 			UPDATE PERSONA.Cliente SET nombreCliente = @nombreCliente, apellidoCliente = @apellidoCliente, identidad = @identidad ,  sexo =  @sexo, telefono = @telefono, direccion = @direccion, correoCliente = @correoCliente WHERE IdCliente=@codigo;
 
 			 INSERT INTO REGISTRO.MOVIMIENTO(operacion, tabla, descripcion, encargado)
-			 VALUES ('SE ACTUALIZO CLIENTE:' + CAST(@codigo AS VARCHAR),  'CLIENTE', 'ACTUALIZACIÓN EXITOSA', @Empleado);
+			 VALUES ('SE ACTUALIZO CLIENTE:' +@nombreCliente ,  'CLIENTE', 'ACTUALIZACIÓN EXITOSA', @Empleado);
 			END
 		END
 		COMMIT TRANSACTION
